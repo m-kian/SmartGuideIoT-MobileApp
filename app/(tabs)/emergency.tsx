@@ -73,7 +73,7 @@ export default function EmergencyScreen() {
     },
     {
       title: "City Hospital",
-      sub: "1.2 km away",
+      sub: "1.3 km away",
       icon: "medical",
       color: "#BAA06A",
     },
