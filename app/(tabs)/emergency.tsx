@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  ScrollView,
 } from "react-native";
 
 export default function EmergencyScreen() {
@@ -87,74 +88,77 @@ export default function EmergencyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.content}>
-        {/* Fixed Header with proper padding */}
-        <View style={styles.headerSection}>
-          <Text style={styles.header}>Emergency</Text>
-          <Text style={styles.subHeader}>
-            Immediate assistance at your fingertips
-          </Text>
-        </View>
+  <StatusBar barStyle="light-content" />
 
-        {/* SOS Button Area */}
-        <View style={styles.sosContainer}>
-          {/* Animated Pulse Ring */}
-          <Animated.View
-            style={[
-              styles.pulseRing,
-              {
-                transform: [{ scale: pulse }],
-                opacity: pulse.interpolate({
-                  inputRange: [1, 1.6],
-                  outputRange: [0.6, 0],
-                }),
-              },
-            ]}
-          />
+  <ScrollView
+    contentContainerStyle={styles.content}
+    showsVerticalScrollIndicator={false}
+  >
+    {/* Fixed Header */}
+    <View style={styles.headerSection}>
+      <Text style={styles.header}>Emergency</Text>
+      <Text style={styles.subHeader}>
+        Immediate assistance at your fingertips
+      </Text>
+    </View>
 
-          <Animated.View style={{ transform: [{ scale }] }}>
-            <Pressable
-              style={[
-                styles.sosButton,
-                sosState !== "idle" && styles.sosActive,
-              ]}
-              onPress={handleSOS}
-            >
-              <View style={styles.sosInner}>
-                <Text style={styles.sosText}>
-                  {sosState === "idle" && "SOS"}
-                  {sosState === "alerting" && "..."}
-                  {sosState === "sent" && "SENT"}
-                </Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-        </View>
+    {/* SOS Button Area */}
+    <View style={styles.sosContainer}>
+      <Animated.View
+        style={[
+          styles.pulseRing,
+          {
+            transform: [{ scale: pulse }],
+            opacity: pulse.interpolate({
+              inputRange: [1, 1.6],
+              outputRange: [0.6, 0],
+            }),
+          },
+        ]}
+      />
 
-        {/* Modernized Contact Cards */}
-        <View style={styles.listContainer}>
-          {emergencyContacts.map((item, index) => (
-            <Pressable key={index} style={styles.card}>
-              <View
-                style={[styles.iconBox, { backgroundColor: item.color + "20" }]}
-              >
-                <Ionicons
-                  name={item.icon as any}
-                  size={22}
-                  color={item.color}
-                />
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardSub}>{item.sub}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#444" />
-            </Pressable>
-          ))}
-        </View>
-      </View>
-    </SafeAreaView>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Pressable
+          style={[
+            styles.sosButton,
+            sosState !== "idle" && styles.sosActive,
+          ]}
+          onPress={handleSOS}
+        >
+          <View style={styles.sosInner}>
+            <Text style={styles.sosText}>
+              {sosState === "idle" && "SOS"}
+              {sosState === "alerting" && "..."}
+              {sosState === "sent" && "SENT"}
+            </Text>
+          </View>
+        </Pressable>
+      </Animated.View>
+    </View>
+
+    {/* Contact Cards */}
+    <View style={styles.listContainer}>
+      {emergencyContacts.map((item, index) => (
+        <Pressable key={index} style={styles.card}>
+          <View
+            style={[styles.iconBox, { backgroundColor: item.color + "20" }]}
+          >
+            <Ionicons
+              name={item.icon as any}
+              size={22}
+              color={item.color}
+            />
+          </View>
+          <View style={styles.cardInfo}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            <Text style={styles.cardSub}>{item.sub}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#444" />
+        </Pressable>
+      ))}
+    </View>
+  </ScrollView>
+</SafeAreaView>
   );
 }
 
@@ -164,9 +168,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0A0A0A", // Solid Black base
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 24, // Fixes items touching the side of the screen
+    paddingHorizontal: 24,
     paddingTop: 20,
+    paddingBottom: 20, // optional but helps scrolling feel complete
   },
   headerSection: {
     marginBottom: 10,
