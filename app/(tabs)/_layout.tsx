@@ -48,26 +48,12 @@ export default function TabLayout() {
 
       {/* VISIBLE NAVIGATION TABS */}
       <Tabs.Screen
-        name="dashboard"
+        name="home"
         options={{
-          title: "Dashboard",
+          title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "grid" : "grid-outline"}
-              size={24}
-              color={color}
-            />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: "Explore",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "map" : "map-outline"}
               size={24}
               color={color}
             />
