@@ -1,168 +1,289 @@
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import MapView, { Circle, Marker } from "react-native-maps";
-// Updated import to fix the SafeAreaView deprecation warning
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import MapView, { Marker, PROVIDER_DEFAULT, Region } from "react-native-maps";
+import Svg, { Path } from "react-native-svg";
 
-const CDO_DEFAULT = { latitude: 8.4542, longitude: 124.6319 };
+interface PlaceMarker {
+  id: number;
+  name: string;
+  lat: number;
+  lon: number;
+  address: string;
+}
 
-export default function HomeScreen() {
-  const [userCoords, setUserCoords] = useState(CDO_DEFAULT);
-  const [locationLabel, setLocationLabel] = useState("Cagayan de Oro City");
-  const [loading, setLoading] = useState(true);
+const CDO_REGION: Region = {
+  latitude: 8.4542,
+  longitude: 124.6319,
+  latitudeDelta: 0.08,
+  longitudeDelta: 0.08,
+};
+
+export default function MapScreen() {
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [markers, setMarkers] = useState<PlaceMarker[]>([]);
+  const [selectedMarker, setSelectedMarker] = useState<PlaceMarker | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
 
   const mapRef = useRef<MapView>(null);
 
+  // 📍 Get user location
   useEffect(() => {
-    let watcher: any;
-
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-
       if (status !== "granted") return;
 
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
-
-      setUserCoords({ latitude, longitude });
-      setLoading(false);
-
-      // FIX: Added try-catch to prevent "java.io.IOException: jgrg: UNAVAILABLE" error
-      try {
-        const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
-
-        if (geo.length > 0) {
-          const g = geo[0];
-          setLocationLabel(g.street ?? g.city ?? "Current Location");
-        }
-      } catch (error) {
-        console.warn("Geocoder service unavailable. Using default label.");
-        setLocationLabel("Current Location");
-      }
-
-      watcher = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 15,
-        },
-        (loc) => {
-          const coords = {
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          };
-
-          setUserCoords(coords);
-
-          mapRef.current?.animateToRegion({
-            ...coords,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          });
-        },
-      );
+      const loc = await Location.getCurrentPositionAsync({});
+      setUserLocation({
+        lat: loc.coords.latitude,
+        lon: loc.coords.longitude,
+      });
     })();
-
-    return () => watcher?.remove();
   }, []);
 
+  // 📍 Go to my location
+  const goToMyLocation = () => {
+    if (!userLocation) {
+      Alert.alert("Location unavailable", "Enable location permission first.");
+      return;
+    }
+
+    mapRef.current?.animateToRegion(
+      {
+        latitude: userLocation.lat,
+        longitude: userLocation.lon,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      },
+      800
+    );
+  };
+
+  // 🔍 FIXED SEARCH (LOCAL ONLY)
+  const handleSearch = async () => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    Keyboard.dismiss();
+    setLoading(true);
+    setMarkers([]);
+    setSelectedMarker(null);
+
+    try {
+      const lat = userLocation?.lat ?? CDO_REGION.latitude;
+      const lon = userLocation?.lon ?? CDO_REGION.longitude;
+
+      // 🔥 FORCE LOCAL CONTEXT
+      const searchQuery = `${trimmed}, Cagayan de Oro`;
+      const encoded = encodeURIComponent(searchQuery);
+
+      const url =
+        `https://nominatim.openstreetmap.org/search` +
+        `?q=${encoded}` +
+        `&format=json` +
+        `&limit=10` +
+        `&countrycodes=ph` +
+        `&viewbox=${lon - 0.1},${lat + 0.1},${lon + 0.1},${lat - 0.1}` +
+        `&bounded=1`;
+
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "SmartGuideIoT/1.0",
+          "Accept-Language": "en",
+        },
+      });
+
+      if (!res.ok) throw new Error("Network error");
+
+      const data = await res.json();
+
+      if (!data || data.length === 0) {
+        Alert.alert("No results", `Nothing found for "${trimmed}".`);
+        return;
+      }
+
+      const newMarkers: PlaceMarker[] = data.map((item: any) => ({
+        id: item.place_id,
+        name: item.display_name.split(",")[0],
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+        address: item.display_name,
+      }));
+
+      setMarkers(newMarkers);
+
+      // 📍 Auto zoom
+      const lats = newMarkers.map((m) => m.lat);
+      const lons = newMarkers.map((m) => m.lon);
+
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLon = Math.min(...lons);
+      const maxLon = Math.max(...lons);
+
+      mapRef.current?.animateToRegion(
+        {
+          latitude: (minLat + maxLat) / 2,
+          longitude: (minLon + maxLon) / 2,
+          latitudeDelta: Math.max((maxLat - minLat) * 1.6, 0.01),
+          longitudeDelta: Math.max((maxLon - minLon) * 1.6, 0.01),
+        },
+        800
+      );
+    } catch {
+      Alert.alert("Error", "Could not fetch results.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClear = () => {
+    setQuery("");
+    setMarkers([]);
+    setSelectedMarker(null);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#BAA06A" />
-          <Text style={styles.loadingText}>Getting your location...</Text>
-        </View>
-      ) : (
-        <MapView
-          ref={mapRef}
-          style={{ flex: 1 }}
-          initialRegion={{
-            ...userCoords,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          userInterfaceStyle="dark"
-        >
-          <Circle
-            center={userCoords}
-            radius={80}
-            fillColor="rgba(220, 38, 38, 0.2)"
-            strokeColor="#dc2626"
-            strokeWidth={2}
-          />
-
+    <View style={styles.container}>
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_DEFAULT}
+        initialRegion={CDO_REGION}
+        showsUserLocation
+        showsMyLocationButton={false}
+      >
+        {markers.map((marker) => (
           <Marker
-            coordinate={userCoords}
-            title="You are here"
+            key={marker.id}
+            coordinate={{ latitude: marker.lat, longitude: marker.lon }}
             pinColor="#BAA06A"
+            onPress={() => setSelectedMarker(marker)}
           />
-        </MapView>
-      )}
+        ))}
+      </MapView>
 
-      <View style={styles.locationCard}>
-        <View style={styles.accentBar} />
-        <View style={styles.cardContent}>
-          <Text style={styles.title}>Current Location</Text>
-          <Text style={styles.locationSubText}>{locationLabel}</Text>
+      {/* Search */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search nearby places..."
+            placeholderTextColor="#666"
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={handleSearch}
+          />
         </View>
+
+        <TouchableOpacity style={styles.goBtn} onPress={handleSearch}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <Text>Go</Text>
+          )}
+        </TouchableOpacity>
       </View>
-    </SafeAreaView>
+
+      {/* My Location */}
+      <TouchableOpacity style={styles.locBtn} onPress={goToMyLocation}>
+        <Text style={{ color: "#BAA06A" }}>◎</Text>
+      </TouchableOpacity>
+
+      {/* Info Card */}
+      {selectedMarker && (
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoText}>
+              <Text style={styles.infoName}>{selectedMarker.name}</Text>
+              <Text style={styles.infoAddress}>
+                {selectedMarker.address}
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={() => setSelectedMarker(null)}>
+              <Text style={{ color: "#BAA06A" }}>X</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0A0A0A",
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#0A0A0A",
-  },
-  loadingText: {
-    color: "#BAA06A",
-    marginTop: 10,
-    fontWeight: "600",
-  },
-  locationCard: {
+  container: { flex: 1 },
+  map: { ...StyleSheet.absoluteFillObject },
+
+  searchContainer: {
     position: "absolute",
-    bottom: 30,
-    left: 20,
-    right: 20,
-    backgroundColor: "#1A1A1A",
-    borderRadius: 12,
+    top: 60,
+    left: 16,
+    right: 16,
     flexDirection: "row",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#333",
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
   },
-  accentBar: {
-    width: 6,
-    backgroundColor: "#dc2626",
-  },
-  cardContent: {
-    padding: 16,
+
+  searchBar: {
     flex: 1,
+    backgroundColor: "#111",
+    borderRadius: 10,
+    padding: 10,
   },
-  title: {
+
+  searchInput: {
+    color: "#fff",
+  },
+
+  goBtn: {
+    backgroundColor: "#BAA06A",
+    padding: 12,
+    marginLeft: 8,
+    borderRadius: 10,
+  },
+
+  locBtn: {
+    position: "absolute",
+    bottom: 100,
+    right: 20,
+    backgroundColor: "#111",
+    padding: 12,
+    borderRadius: 10,
+  },
+
+  infoCard: {
+    position: "absolute",
+    bottom: 40,
+    left: 16,
+    right: 16,
+    backgroundColor: "#111",
+    padding: 12,
+    borderRadius: 10,
+  },
+
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  infoText: { flex: 1 },
+
+  infoName: {
+    color: "#fff",
     fontWeight: "bold",
-    color: "#BAA06A",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 4,
   },
-  locationSubText: {
-    color: "#FDF5E6",
-    fontSize: 15,
-    fontWeight: "500",
+
+  infoAddress: {
+    color: "#aaa",
+    fontSize: 12,
   },
 });
