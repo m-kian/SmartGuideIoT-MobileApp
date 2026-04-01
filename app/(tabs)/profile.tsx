@@ -42,6 +42,7 @@ export default function ProfileScreen() {
           <View>
             <Text style={styles.name}>Rocel Saguing</Text>
             <Text style={styles.email}>rocel.saguing@email.com</Text>
+            <Text style={styles.email}>Device ID: 4576969</Text>
           </View>
         </View>
 
