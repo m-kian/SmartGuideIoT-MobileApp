@@ -12,7 +12,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [role, setRole] = useState<'Admin' | 'User'>('Admin');
 
   const canLogin = email.trim().length > 0 && password.trim().length > 0;
 
@@ -33,16 +32,7 @@ export default function LoginScreen() {
           <Text style={authStyles.title}>SmartGuide</Text>
           <Text style={authStyles.subtitle}>Secure monitoring access for your platform.</Text>
 
-          <View style={authStyles.roleSelector}>
-            {(['Admin', 'User'] as const).map((item) => (
-              <Pressable
-                key={item}
-                style={[authStyles.roleButton, role === item && authStyles.roleButtonActive]}
-                onPress={() => setRole(item)}>
-                <Text style={[authStyles.roleButtonText, role === item && authStyles.roleButtonTextActive]}>{item}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {/* Removed role selector — only User login */}
 
           <Text style={authStyles.label}>Email</Text>
           <View style={authStyles.inputRow}>
@@ -50,7 +40,7 @@ export default function LoginScreen() {
             <TextInput
               value={email}
               onChangeText={setEmail}
-              placeholder="admin@smartguide.com"
+              placeholder="user@smartguide.com"
               placeholderTextColor="#8A8A8A"
               style={authStyles.input}
               autoCapitalize="none"
@@ -78,7 +68,7 @@ export default function LoginScreen() {
             style={[authStyles.primaryButton, !canLogin && authStyles.buttonDisabled]}
             disabled={!canLogin}
             onPress={() => router.replace('/dashboard')}>
-            <Text style={authStyles.primaryButtonText}>Sign In as {role}</Text>
+            <Text style={authStyles.primaryButtonText}>Sign In</Text>
             <Ionicons name="arrow-forward" size={18} color="#FDF5E6" />
           </Pressable>
 
